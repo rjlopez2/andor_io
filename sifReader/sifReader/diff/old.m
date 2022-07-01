@@ -1,5 +1,5 @@
-function data =sifreadnk(file)
-f=fopen(file,'r');
+function data =sifreadHeader(file)
+f=fopen(file,'r','n','US-ASCII');
 if f < 0
    error('Could not open the file.');
 end
@@ -22,8 +22,6 @@ function info=readSection(f)
 o=fscanf(f,'%d',6); %% scan over the 6 Bytes
 info.temperature=o(6); %o(6)
 skipBytes(f,10);%% skip the space (why 10 not 11?)
-%skipLines(f,1);
-%info.whatisthis=readLine(f)
 o=fscanf(f,'%f',5);%% Scan the next 5 bytes
 info.delayExpPeriod=o(2);
 info.exposureTime=o(3);
@@ -37,8 +35,6 @@ o=fscanf(f,'%d',3);
 info.gainDAC=o(3);
 skipLines(f,1);
 info.detectorType=readLine(f);
-%skipLines(f,1);
-%info.whatisthis=readLine(f)
 info.detectorSize=fscanf(f,'%d',[1 2]); %% I think everythings ok to here
 info.fileName=readString(f);
 %skipLines(f,4); %% changed this from 26 from Ixon camera now works for Newton. %%%%%%%%%%%%%%%%%%%%%%% ALL YOU NEED TO CHANGE
@@ -53,6 +49,16 @@ info.grating = round(o(7));
 
 %skipLines(f,10); % added this in
 skipUntil(f,'65539')
+skipUntil(f,'65538') %NEW
+backOneLine(f) %NEW
+o=fscanf(f,'65538 %d %d %d %d %d %d %d %d 65538 %d %d %d %d %d %d',14);
+if o(2) == 0
+    split = 1;
+else
+    split = 0;
+end
+
+
 skipUntilChar(f,'.')
 backOneLine(f)
 
@@ -69,15 +75,19 @@ info.axisWavelength = info.minWavelength + da.*(info.stepWavelength + da.*info.s
 info.axisEnergy = convertUnits(info.axisWavelength,'nm','eV'); % energy in eV
 info.axisGHz = convertUnits(info.axisWavelength,'nm','GHz');
 
-%skipLines(f,6);
-skipUntil(f,'Wavelength');
-backOneLine(f)
-backOneLine(f)
+%skipUntil(f,'Wavelength');
+%backOneLine(f)
+%backOneLine(f)
 
+skipUntil(f,'Pixel number')
+backOneLine(f)
+skip = fscanf(f,'%12c',1);
+info.frameAxis = fscanf(f,'%d',1); %'Pixel number'
 
-info.frameAxis=readString(f); %'Pixel number'
-info.dataType=readString(f);  %'Counts' %% gets this from andor file
-info.imageAxis=readString(f);  %'Pixel number' %% gets this from andor file
+skip = fscanf(f,'%7c',1);
+info.dataType = fscanf(f,'%d',1);  %'Counts' %% gets this from andor file
+
+skip = fscanf(f,'%13c',1);
 o=fscanf(f,'65541 %d %d %d %d %d %d %d %d 65538 %d %d %d %d %d %d',14); %% 14 is lines in o?
 temp = o;
 info.imageArea=[o(1) o(4) o(6);o(3) o(2) o(5)];
@@ -85,32 +95,10 @@ info.frameArea=[o(9) o(12);o(11) o(10)];
 info.frameBins=[o(14) o(13)];
 s=(1 + diff(info.frameArea))./info.frameBins;
 z=1 + diff(info.imageArea(5:6));
-
+info.height = s(2);
+info.width = s(1);
 info.kineticLength = o(5);
-if prod(s) ~= o(8) || o(8)*z ~= o(7);
-   fclose(f);
-   error('Inconsistent image header.');
-end
-% for n=1:z                       % Had to comment this section for kinetic
-%    o=readString(f);
-%    if numel(o)
-%       fprintf( '%s\n',o);      % comments
-%    end
-% end
 
-skipLines(f,2+info.kineticLength); % changed from 2 to 2+info.kineticLength. This is the trick to get kinetic mode to work.
-
-%for ii = 1:info.kineticLength
-%    info.imageData=reshape(fread(f,prod(s)*z,'single=>single'),[s z]); %Switched z and s around to flip image 90 degrees
-info.imageData = reshape(fread(f,prod(s)*z,'single=>single'),[s z]);
-    %info.imageData{ii} =fread(f,prod(s)*z);
-    %size(info.imageData(:,:,ii));
-%end
-
-o=readString(f);           % read the whole file.
-if numel(o)
-   fprintf('%s\n',o);      % If the file has no elements, then return error?
-end
 
 
 
