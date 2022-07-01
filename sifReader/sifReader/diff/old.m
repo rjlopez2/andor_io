@@ -211,3 +211,14 @@ while ~newLineFound
     newLineFound = c==10;
     numTimes = numTimes+1;
 end
+%
+% if numTimes<=2
+% fseek(f,-4,'cof');
+% numTimes = 0;
+% while ~newLineFound
+%     fseek(f,-2,'cof');
+%     c=fscanf(f,'%d',1)
+%     newLineFound = c==10;
+%     numTimes = numTimes+1;
+% end
+% end
